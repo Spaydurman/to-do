@@ -1,7 +1,8 @@
 import * as React from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { Todo, Status } from '@/types'
+import { STAGES, Stage, Todo } from '@/types'
 import { TodoItem } from './TodoItem'
+import { Card, CardContent, CardHeader } from './ui/card'
 
 interface BoardProps {
   todos: Todo[]
@@ -9,74 +10,95 @@ interface BoardProps {
   onToggle: (id: string) => void
   onEdit: (todo: Todo) => void
   onDelete: (id: string) => void
+  onToggleSubtask: (todoId: string, subtaskId: string) => void
+  onAddSubtask: (todoId: string, title: string) => void
+  onRemoveSubtask: (todoId: string, subtaskId: string) => void
 }
 
 type DragData = {
   id: string
-  fromStatus: Status
+  fromStage: Stage
   fromIndex: number
 }
 
 function useColumns(todos: Todo[]) {
-  const byStatus = React.useMemo(() => {
-    return {
-      new: todos.filter((t) => t.status === 'new'),
-      ongoing: todos.filter((t) => t.status === 'ongoing'),
-      done: todos.filter((t) => t.status === 'done'),
-    } as Record<Status, Todo[]>
+  const byStage = React.useMemo(() => {
+    const map: Record<Stage, Todo[]> = {
+      [Stage.Backlog]: [],
+      [Stage.Todo]: [],
+      [Stage.InProgress]: [],
+      [Stage.Done]: [],
+    }
+    for (const t of todos) {
+      map[t.stage]?.push(t)
+    }
+    return map
   }, [todos])
-  return byStatus
+  return byStage
 }
 
-export function Board({ todos, onChange, onToggle, onEdit, onDelete }: BoardProps) {
+export function Board({
+  todos,
+  onChange,
+  onToggle,
+  onEdit,
+  onDelete,
+  onToggleSubtask,
+  onAddSubtask,
+  onRemoveSubtask,
+}: BoardProps) {
   const columns = useColumns(todos)
   const dragRef = React.useRef<DragData | null>(null)
 
-  function onDragStart(status: Status, index: number, id: string) {
-    dragRef.current = { id, fromStatus: status, fromIndex: index }
+  function onDragStart(stage: Stage, index: number, id: string) {
+    dragRef.current = { id, fromStage: stage, fromIndex: index }
   }
 
-  function handleDrop(targetStatus: Status, targetIndex: number) {
+  function handleDrop(targetStage: Stage, targetIndex: number) {
     const drag = dragRef.current
     if (!drag) return
 
-    // Create fresh arrays
-    const lists: Record<Status, Todo[]> = {
-      new: columns.new.slice(),
-      ongoing: columns.ongoing.slice(),
-      done: columns.done.slice(),
+    const lists: Record<Stage, Todo[]> = {
+      [Stage.Backlog]: columns[Stage.Backlog].slice(),
+      [Stage.Todo]: columns[Stage.Todo].slice(),
+      [Stage.InProgress]: columns[Stage.InProgress].slice(),
+      [Stage.Done]: columns[Stage.Done].slice(),
     }
 
-    // Remove from source
-    const sourceList = lists[drag.fromStatus]
+    const sourceList = lists[drag.fromStage]
     const item = sourceList.splice(drag.fromIndex, 1)[0]
     if (!item) return
 
-    // Insert into target and set status
-    item.status = targetStatus
-    const destList = lists[targetStatus]
+    item.stage = targetStage
+    const destList = lists[targetStage]
     const idx = Math.max(0, Math.min(targetIndex, destList.length))
     destList.splice(idx, 0, item)
 
-    // Recombine lists -> order by columns top-to-bottom left-to-right
-    const next = [...lists.new, ...lists.ongoing, ...lists.done]
+    const next: Todo[] = [
+      ...lists[Stage.Backlog],
+      ...lists[Stage.Todo],
+      ...lists[Stage.InProgress],
+      ...lists[Stage.Done],
+    ]
     onChange(next)
     dragRef.current = null
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      {(['new', 'ongoing', 'done'] as Status[]).map((status) => (
+    <div className="grid gap-4 md:grid-cols-4">
+      {STAGES.map((stage) => (
         <Column
-          key={status}
-          title={status === 'new' ? 'New' : status === 'ongoing' ? 'On-going' : 'Done'}
-          status={status}
-          items={columns[status]}
+          key={stage}
+          stage={stage}
+          items={columns[stage]}
           onToggle={onToggle}
           onEdit={onEdit}
           onDelete={onDelete}
           onDragStart={onDragStart}
           onDropAt={handleDrop}
+          onToggleSubtask={onToggleSubtask}
+          onAddSubtask={onAddSubtask}
+          onRemoveSubtask={onRemoveSubtask}
         />
       ))}
     </div>
@@ -84,27 +106,40 @@ export function Board({ todos, onChange, onToggle, onEdit, onDelete }: BoardProp
 }
 
 interface ColumnProps {
-  title: string
-  status: Status
+  stage: Stage
   items: Todo[]
   onToggle: (id: string) => void
   onEdit: (todo: Todo) => void
   onDelete: (id: string) => void
-  onDragStart: (status: Status, index: number, id: string) => void
-  onDropAt: (status: Status, index: number) => void
+  onDragStart: (stage: Stage, index: number, id: string) => void
+  onDropAt: (stage: Stage, index: number) => void
+  onToggleSubtask: (todoId: string, subtaskId: string) => void
+  onAddSubtask: (todoId: string, title: string) => void
+  onRemoveSubtask: (todoId: string, subtaskId: string) => void
 }
 
-function Column({ title, status, items, onToggle, onEdit, onDelete, onDragStart, onDropAt }: ColumnProps) {
+function Column({
+  stage,
+  items,
+  onToggle,
+  onEdit,
+  onDelete,
+  onDragStart,
+  onDropAt,
+  onToggleSubtask,
+  onAddSubtask,
+  onRemoveSubtask,
+}: ColumnProps) {
   function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault()
   }
 
   return (
-    <div className="card min-h-[300px]">
-      <div className="border-b border-border p-3">
-        <h3 className="font-semibold">{title}</h3>
-      </div>
-      <div className="p-3 space-y-3" onDragOver={handleDragOver}>
+    <Card className="flex min-h-[320px] flex-col">
+      <CardHeader>
+        <h3 className="text-sm font-semibold leading-none tracking-tight">{stage}</h3>
+      </CardHeader>
+      <CardContent className="flex-1 space-y-3 overflow-auto pt-4" onDragOver={handleDragOver}>
         <AnimatePresence initial={false}>
           {items.map((todo, index) => (
             <div
@@ -112,7 +147,7 @@ function Column({ title, status, items, onToggle, onEdit, onDelete, onDragStart,
               onDragOver={handleDragOver}
               onDrop={(e) => {
                 e.preventDefault()
-                onDropAt(status, index)
+                onDropAt(stage, index)
               }}
             >
               <TodoItem
@@ -121,13 +156,16 @@ function Column({ title, status, items, onToggle, onEdit, onDelete, onDragStart,
                 onToggle={onToggle}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                onToggleSubtask={onToggleSubtask}
+                onAddSubtask={onAddSubtask}
+                onRemoveSubtask={onRemoveSubtask}
                 dragHandlers={{
                   draggable: true,
-                  onDragStart: () => onDragStart(status, index, todo.id),
+                  onDragStart: () => onDragStart(stage, index, todo.id),
                   onDragOver: handleDragOver,
                   onDrop: (e) => {
                     e.preventDefault()
-                    onDropAt(status, index)
+                    onDropAt(stage, index)
                   },
                   onDragEnd: () => {},
                   'data-index': index,
@@ -136,16 +174,15 @@ function Column({ title, status, items, onToggle, onEdit, onDelete, onDragStart,
             </div>
           ))}
         </AnimatePresence>
-        {/* Drop at end */}
         <div
           className="h-8"
           onDrop={(e) => {
             e.preventDefault()
-            onDropAt(status, items.length)
+            onDropAt(stage, items.length)
           }}
           onDragOver={handleDragOver}
         />
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }

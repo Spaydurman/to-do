@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { CATEGORIES, Category, Priority, TodoDraft } from '@/types'
+import { CATEGORIES, Category, Priority, TodoDraft, Stage } from '@/types'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
@@ -16,6 +16,7 @@ export function TodoForm({ initial, onSubmit, onCancel }: TodoFormProps) {
   const [description, setDescription] = React.useState(initial?.description ?? '')
   const [category, setCategory] = React.useState<Category>(initial?.category ?? 'other')
   const [priority, setPriority] = React.useState<Priority>(initial?.priority ?? Priority.Medium)
+  const [stage] = React.useState<Stage>(initial?.stage ?? Stage.Backlog)
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -26,7 +27,7 @@ export function TodoForm({ initial, onSubmit, onCancel }: TodoFormProps) {
       completed: initial?.completed ?? false,
       category,
       priority,
-      status: initial?.completed ? 'done' : initial?.status ?? 'new',
+      stage,
     })
   }
 

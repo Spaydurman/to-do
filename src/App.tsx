@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { motion } from 'framer-motion'
-import { STORAGE_KEYS, Todo, TodoDraft, FiltersState, Priority, Status } from '@/types'
+import { STORAGE_KEYS, Todo, TodoDraft, Priority, Stage, SubTask } from '@/types'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
@@ -19,27 +19,71 @@ export default function App() {
   const [editing, setEditing] = React.useState<Todo | null>(null)
   const [showForm, setShowForm] = React.useState(false)
 
-  // Migrate existing todos without status
+  // Migrate existing todos from older shapes (status-based, no stage/subtasks)
   React.useEffect(() => {
-    if (todos.some((t) => (t as any).status === undefined)) {
-      const migrated = todos.map((t) => ({
-        ...t,
-        status: t.completed ? ('done' as Status) : ('new' as Status),
-      }))
-      setTodos(migrated)
+    if (!todos.some((t) => (t as any).stage === undefined || (t as any).subtasks === undefined)) {
+      return
     }
+
+    const migrated = todos.map((t) => {
+      const anyTodo = t as any
+      const existingStage: Stage | undefined = anyTodo.stage
+      const legacyStatus: string | undefined = anyTodo.status
+      let stage: Stage
+      if (existingStage) {
+        stage = existingStage
+      } else if (legacyStatus === 'ongoing') {
+        stage = Stage.InProgress
+      } else if (legacyStatus === 'done' || t.completed) {
+        stage = Stage.Done
+      } else if (legacyStatus === 'new') {
+        stage = Stage.Backlog
+      } else {
+        stage = Stage.Backlog
+      }
+
+      const subtasks: SubTask[] = Array.isArray(anyTodo.subtasks)
+        ? anyTodo.subtasks
+        : []
+
+      return {
+        ...t,
+        stage,
+        subtasks,
+      }
+    })
+    setTodos(migrated)
+  // we intentionally run this once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function addTodo(draft: TodoDraft) {
     const now = Date.now()
-    const todo: Todo = { id: createTodoId(), createdAt: now, updatedAt: now, status: draft.status ?? 'new', ...draft }
+    const todo: Todo = {
+      id: createTodoId(),
+      createdAt: now,
+      updatedAt: now,
+      stage: draft.stage ?? Stage.Backlog,
+      subtasks: draft.subtasks ?? [],
+      ...draft,
+    }
     setTodos([todo, ...todos])
     setShowForm(false)
   }
 
   function updateTodo(id: string, draft: TodoDraft) {
     setTodos(
-      todos.map((t) => (t.id === id ? { ...t, ...draft, updatedAt: Date.now() } : t))
+      todos.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              ...draft,
+              stage: draft.stage ?? t.stage,
+              subtasks: draft.subtasks ?? t.subtasks,
+              updatedAt: Date.now(),
+            }
+          : t,
+        ),
     )
     setEditing(null)
   }
@@ -54,12 +98,62 @@ export default function App() {
         t.id === id
           ? {
               ...t,
-              completed: t.status !== 'done',
-              status: t.status === 'done' ? 'new' : 'done',
+              completed: t.stage !== Stage.Done,
+              stage: t.stage === Stage.Done ? Stage.Todo : Stage.Done,
               updatedAt: Date.now(),
             }
-          : t
-      )
+          : t,
+        ),
+    )
+  }
+
+  function toggleSubtask(todoId: string, subtaskId: string) {
+    setTodos(
+      todos.map((t) => {
+        if (t.id !== todoId) return t
+        return {
+          ...t,
+          subtasks: t.subtasks.map((s) =>
+            s.id === subtaskId ? { ...s, completed: !s.completed } : s,
+          ),
+          updatedAt: Date.now(),
+        }
+      }),
+    )
+  }
+
+  function createSubtaskId() {
+    return Math.random().toString(36).slice(2) + Date.now().toString(36)
+  }
+
+  function addSubtask(todoId: string, title: string) {
+    setTodos(
+      todos.map((t) =>
+        t.id === todoId
+          ? {
+              ...t,
+              subtasks: [
+                ...t.subtasks,
+                { id: createSubtaskId(), title, completed: false },
+              ],
+              updatedAt: Date.now(),
+            }
+          : t,
+        ),
+    )
+  }
+
+  function removeSubtask(todoId: string, subtaskId: string) {
+    setTodos(
+      todos.map((t) =>
+        t.id === todoId
+          ? {
+              ...t,
+              subtasks: t.subtasks.filter((s) => s.id !== subtaskId),
+              updatedAt: Date.now(),
+            }
+          : t,
+        ),
     )
   }
 
@@ -72,7 +166,7 @@ export default function App() {
       <div className="flex h-full flex-col gap-4">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Type-Safe Todo</h1>
+          <h1 className="text-2xl font-bold">Todo</h1>
           <p className="text-muted-foreground">
             {name ? `Hello, ${name}!` : 'Welcome!'}
           </p>
@@ -86,6 +180,9 @@ export default function App() {
           onToggle={toggleTodo}
           onEdit={onEdit}
           onDelete={deleteTodo}
+          onToggleSubtask={toggleSubtask}
+          onAddSubtask={addSubtask}
+          onRemoveSubtask={removeSubtask}
         />
       </motion.div>
 

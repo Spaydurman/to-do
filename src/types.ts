@@ -16,12 +16,26 @@ export const CATEGORIES: Category[] = [
 ]
 
 export enum Priority {
-  Low = 'low',
-  Medium = 'medium',
-  High = 'high',
+  Low = 'Low',
+  Medium = 'Medium',
+  High = 'High',
+  Critical = 'Critical',
 }
 
-export type Status = 'new' | 'ongoing' | 'done'
+export enum Stage {
+  Backlog = 'Backlog',
+  Todo = 'Todo',
+  InProgress = 'InProgress',
+  Done = 'Done',
+}
+
+export const STAGES: Stage[] = [Stage.Backlog, Stage.Todo, Stage.InProgress, Stage.Done]
+
+export interface SubTask {
+  id: string
+  title: string
+  completed: boolean
+}
 
 export interface Todo {
   id: string
@@ -30,13 +44,15 @@ export interface Todo {
   completed: boolean
   category: Category
   priority: Priority
-  status: Status
+  stage: Stage
+  subtasks: SubTask[]
   createdAt: number
   updatedAt: number
 }
 
-export type TodoDraft = Omit<Todo, 'id' | 'createdAt' | 'updatedAt' | 'status'> & {
-  status?: Status
+export type TodoDraft = Omit<Todo, 'id' | 'createdAt' | 'updatedAt' | 'stage' | 'subtasks'> & {
+  stage?: Stage
+  subtasks?: SubTask[]
 }
 
 export interface FiltersState {
