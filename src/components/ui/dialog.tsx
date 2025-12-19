@@ -34,7 +34,7 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
 }
 
 export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('p-4 border-b border-border', className)} {...props} />
+  return <div className={cn('p-4 border-b border-[hsl(var(--border))]', className)} {...props} />
 }
 
 export function DialogContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
@@ -42,5 +42,5 @@ export function DialogContent({ className, ...props }: React.HTMLAttributes<HTML
 }
 
 export function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('p-4 border-t border-border', className)} {...props} />
+  return <div className={cn('p-4 border-t border-[hsl(var(--border))]', className)} {...props} />
 }

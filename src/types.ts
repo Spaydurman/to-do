@@ -64,3 +64,10 @@ export const STORAGE_KEYS = {
   name: 'ts_todo:name',
   todos: 'ts_todo:items',
 } as const
+
+export enum Theme {
+  Light = 'light',
+  Dark = 'dark',
+}
+
+export const THEME_STORAGE_KEY = 'ts_todo:theme'

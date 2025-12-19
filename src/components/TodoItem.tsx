@@ -6,6 +6,7 @@ import { Button } from './ui/button'
 import { Card, CardContent } from './ui/card'
 import { Badge } from './ui/badge'
 import { Checkbox } from './ui/checkbox'
+import { cn } from '@/utils/cn'
 
 interface TodoItemProps {
   todo: Todo
@@ -37,6 +38,7 @@ interface TodoItemProps {
     dragHandlers,
   }: TodoItemProps) {
   const [newSubTitle, setNewSubTitle] = React.useState('')
+  const [isDragging, setIsDragging] = React.useState(false)
 
   const priorityColor =
     todo.priority === Priority.Critical
@@ -62,7 +64,24 @@ interface TodoItemProps {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
     >
-      <Card className="cursor-grab active:cursor-grabbing" {...dragHandlers}>
+      <Card
+        draggable={dragHandlers.draggable}
+        data-index={dragHandlers['data-index']}
+        onDragStart={(e) => {
+          setIsDragging(true)
+          dragHandlers.onDragStart(e)
+        }}
+        onDragOver={dragHandlers.onDragOver}
+        onDrop={dragHandlers.onDrop}
+        onDragEnd={(e) => {
+          setIsDragging(false)
+          dragHandlers.onDragEnd(e)
+        }}
+        className={cn(
+          'cursor-grab active:cursor-grabbing transition-colors',
+          isDragging && 'ring-1 ring-[hsl(var(--primary))]'
+        )}
+      >
         <CardContent className="space-y-3 pt-4">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-2">
@@ -75,11 +94,11 @@ interface TodoItemProps {
                 >
                   {todo.priority}
                 </Badge>
-                <span className="text-xs text-muted-foreground">{todo.stage}</span>
+                <span className="text-xs text-[hsl(var(--muted-foreground))]">{todo.stage}</span>
               </div>
               <h3 className="text-sm font-semibold leading-tight">{todo.title}</h3>
               {todo.description && (
-                <p className="text-xs text-muted-foreground">{todo.description}</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">{todo.description}</p>
               )}
             </div>
             <div className="flex flex-col items-end gap-2">
@@ -113,7 +132,7 @@ interface TodoItemProps {
 
           {todo.subtasks.length > 0 && (
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Sub-tasks</p>
+              <p className="text-xs font-medium text-[hsl(var(--muted-foreground))]">Sub-tasks</p>
               <div className="space-y-1">
                 {todo.subtasks.map((sub: SubTask) => (
                   <div
@@ -128,8 +147,8 @@ interface TodoItemProps {
                       <span
                         className={
                           sub.completed
-                            ? 'text-muted-foreground line-through'
-                            : 'text-foreground'
+                            ? 'text-[hsl(var(--muted-foreground))] line-through'
+                            : 'text-[hsl(var(--foreground))]'
                         }
                       >
                         {sub.title}
@@ -151,7 +170,7 @@ interface TodoItemProps {
 
           <form onSubmit={handleAddSubtask} className="mt-2 flex items-center gap-2">
             <input
-              className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex-1 rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1 text-xs shadow-sm text-[hsl(var(--foreground))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
               placeholder="Add sub-task"
               value={newSubTitle}
               onChange={(e) => setNewSubTitle(e.target.value)}

@@ -13,6 +13,7 @@ interface BoardProps {
   onToggleSubtask: (todoId: string, subtaskId: string) => void
   onAddSubtask: (todoId: string, title: string) => void
   onRemoveSubtask: (todoId: string, subtaskId: string) => void
+  onCreate: (stage: Stage) => void
 }
 
 type DragData = {
@@ -46,9 +47,11 @@ export function Board({
   onToggleSubtask,
   onAddSubtask,
   onRemoveSubtask,
+  onCreate,
 }: BoardProps) {
   const columns = useColumns(todos)
   const dragRef = React.useRef<DragData | null>(null)
+  const [activeStage, setActiveStage] = React.useState<Stage | null>(null)
 
   function onDragStart(stage: Stage, index: number, id: string) {
     dragRef.current = { id, fromStage: stage, fromIndex: index }
@@ -99,6 +102,9 @@ export function Board({
           onToggleSubtask={onToggleSubtask}
           onAddSubtask={onAddSubtask}
           onRemoveSubtask={onRemoveSubtask}
+          isActive={activeStage === stage}
+          onHover={(s) => setActiveStage(s)}
+          onCreate={onCreate}
         />
       ))}
     </div>
@@ -116,6 +122,9 @@ interface ColumnProps {
   onToggleSubtask: (todoId: string, subtaskId: string) => void
   onAddSubtask: (todoId: string, title: string) => void
   onRemoveSubtask: (todoId: string, subtaskId: string) => void
+  isActive: boolean
+  onHover: (stage: Stage | null) => void
+  onCreate: (stage: Stage) => void
 }
 
 function Column({
@@ -129,25 +138,68 @@ function Column({
   onToggleSubtask,
   onAddSubtask,
   onRemoveSubtask,
+  isActive,
+  onHover,
+  onCreate,
 }: ColumnProps) {
   function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault()
+    onHover(stage)
   }
 
+  function handleDragLeave(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    onHover(null)
+  }
+
+  // const stageBg = 
+  //   stage === Stage.Backlog
+  //     ? 'bg-white dark:bg-zinc-900/60'
+  //     : stage === Stage.Todo
+  //     ? 'bg-white dark:bg-zinc-900/50'
+  //     : stage === Stage.InProgress
+  //     ? 'bg-white dark:bg-zinc-900/50'
+  //     : 'bg-white dark:bg-zinc-900/50'
+
   return (
-    <Card className="flex min-h-[320px] flex-col">
-      <CardHeader>
+    <Card
+      className={
+        'flex min-h-80 flex-col' +
+        (isActive ? ' ring-1 ring-[hsl(var(--primary))]' : '')
+      }
+    >
+      <CardHeader className="flex items-center justify-between">
         <h3 className="text-sm font-semibold leading-none tracking-tight">{stage}</h3>
+        <button
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[hsl(var(--border))] text-xs font-medium text-[hsl(var(--foreground))] shadow-sm hover:bg-[hsl(var(--accent))]"
+          type="button"
+          onClick={() => onCreate(stage)}
+        >
+          +
+        </button>
       </CardHeader>
-      <CardContent className="flex-1 space-y-3 overflow-auto pt-4" onDragOver={handleDragOver}>
+      <CardContent
+        className="flex-1 space-y-3 overflow-auto pt-4"
+         onDrop={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onDropAt(stage, items.length)
+            onHover(null)
+          }}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+      >
         <AnimatePresence initial={false}>
           {items.map((todo, index) => (
             <div
               key={todo.id}
               onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
               onDrop={(e) => {
                 e.preventDefault()
+                e.stopPropagation()
                 onDropAt(stage, index)
+                onHover(null)
               }}
             >
               <TodoItem
@@ -175,13 +227,19 @@ function Column({
           ))}
         </AnimatePresence>
         <div
-          className="h-8"
+          className="mt-2 flex h-9 cursor-pointer items-center justify-center rounded-md border border-dashed border-[hsl(var(--border))] text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] hover:border-[hsl(var(--primary))]"
           onDrop={(e) => {
             e.preventDefault()
+            e.stopPropagation()
             onDropAt(stage, items.length)
+            onHover(null)
           }}
           onDragOver={handleDragOver}
-        />
+          onDragLeave={handleDragLeave}
+          onClick={() => onCreate(stage)}
+        >
+          + Add new
+        </div>
       </CardContent>
     </Card>
   )

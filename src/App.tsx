@@ -1,9 +1,9 @@
 import * as React from 'react'
 import { motion } from 'framer-motion'
-import { STORAGE_KEYS, Todo, TodoDraft, Priority, Stage, SubTask } from '@/types'
+import { STORAGE_KEYS, Todo, TodoDraft, Priority, Stage, SubTask, Theme, THEME_STORAGE_KEY } from '@/types'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
+import { Moon, Plus, Sun } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { UserNameForm } from '@/components/UserNameForm'
 import { TodoForm } from '@/components/TodoForm'
@@ -18,6 +18,32 @@ export default function App() {
   const [todos, setTodos] = useLocalStorage<Todo[]>(STORAGE_KEYS.todos, [])
   const [editing, setEditing] = React.useState<Todo | null>(null)
   const [showForm, setShowForm] = React.useState(false)
+  const [creatingStage, setCreatingStage] = React.useState<Stage | null>(null)
+
+  const [theme, setTheme] = React.useState<Theme>(() => {
+    if (typeof window === 'undefined') return Theme.Light
+    try {
+      const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
+      return stored === Theme.Dark ? Theme.Dark : Theme.Light
+    } catch {
+      return Theme.Light
+    }
+  })
+
+  React.useEffect(() => {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    if (theme === Theme.Dark) {
+      root.classList.add('dark')
+    } else {
+      root.classList.remove('dark')
+    }
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme)
+    } catch {
+      // ignore
+    }
+  }, [theme])
 
   // Migrate existing todos from older shapes (status-based, no stage/subtasks)
   React.useEffect(() => {
@@ -63,12 +89,13 @@ export default function App() {
       id: createTodoId(),
       createdAt: now,
       updatedAt: now,
-      stage: draft.stage ?? Stage.Backlog,
+      stage: draft.stage ?? creatingStage ?? Stage.Backlog,
       subtasks: draft.subtasks ?? [],
       ...draft,
     }
     setTodos([todo, ...todos])
     setShowForm(false)
+    setCreatingStage(null)
   }
 
   function updateTodo(id: string, draft: TodoDraft) {
@@ -161,40 +188,81 @@ export default function App() {
     setEditing(todo)
   }
 
-  return (
-    <div className="w-screen h-screen p-4 overflow-hidden">
-      <div className="flex h-full flex-col gap-4">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Todo</h1>
-          <p className="text-muted-foreground">
-            {name ? `Hello, ${name}!` : 'Welcome!'}
-          </p>
-        </div>
-      </header>
+  function startCreateForStage(stage: Stage) {
+    setCreatingStage(stage)
+    setShowForm(true)
+  }
 
-      <motion.div layout className="flex-1 overflow-auto">
-        <Board
-          todos={todos}
-          onChange={setTodos}
-          onToggle={toggleTodo}
-          onEdit={onEdit}
-          onDelete={deleteTodo}
-          onToggleSubtask={toggleSubtask}
-          onAddSubtask={addSubtask}
-          onRemoveSubtask={removeSubtask}
-        />
-      </motion.div>
+  return (
+    <div className="w-screen h-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] p-4 overflow-hidden">
+      <div className="flex h-full flex-col gap-4">
+        <header className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Todo</h1>
+            <p className="text-[hsl(var(--muted-foreground))]">
+              {name ? `Hello, ${name}!` : 'Welcome!'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Toggle theme"
+              onClick={() =>
+                setTheme((prev) =>
+                  prev === Theme.Dark ? Theme.Light : Theme.Dark,
+                )
+              }
+            >
+              {theme === Theme.Dark ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </header>
+
+        <motion.div layout className="flex-1 overflow-auto">
+          <Board
+            todos={todos}
+            onChange={setTodos}
+            onToggle={toggleTodo}
+            onEdit={onEdit}
+            onDelete={deleteTodo}
+            onToggleSubtask={toggleSubtask}
+            onAddSubtask={addSubtask}
+            onRemoveSubtask={removeSubtask}
+            onCreate={startCreateForStage}
+          />
+        </motion.div>
 
       {/* Create */}
       {showForm && (
         <div className="fixed inset-0 z-40 grid place-items-center bg-black/50 p-4" onClick={() => setShowForm(false)}>
           <div className="card w-full max-w-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="p-4 border-b border-border">
+            <div className="p-4 border-b border-[hsl(var(--border))]">
               <h2 className="text-lg font-semibold">Add Todo</h2>
             </div>
             <div className="p-4">
-              <TodoForm onSubmit={addTodo} onCancel={() => setShowForm(false)} />
+              {creatingStage ? (
+                <TodoForm
+                  initial={{ stage: creatingStage }}
+                  onSubmit={addTodo}
+                  onCancel={() => {
+                    setShowForm(false)
+                    setCreatingStage(null)
+                  }}
+                />
+              ) : (
+                <TodoForm
+                  onSubmit={addTodo}
+                  onCancel={() => {
+                    setShowForm(false)
+                    setCreatingStage(null)
+                  }}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -204,7 +272,7 @@ export default function App() {
       {editing && (
         <div className="fixed inset-0 z-40 grid place-items-center bg-black/50 p-4" onClick={() => setEditing(null)}>
           <div className="card w-full max-w-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="p-4 border-b border-border">
+            <div className="p-4 border-b border-[hsl(var(--border))]">
               <h2 className="text-lg font-semibold">Edit Todo</h2>
             </div>
             <div className="p-4">
@@ -221,14 +289,17 @@ export default function App() {
       {/* Ask user name on first open */}
       <UserNameForm name={name} onSubmit={setName} />
       <Button
-        variant="primary"
+        variant="default"
         size="icon"
         className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg"
-        onClick={() => setShowForm(true)}
+        onClick={() => {
+          setCreatingStage(null)
+          setShowForm(true)
+        }}
         aria-label="Add Todo"
         title="Add Todo"
       >
-        <Plus className="h-6 w-6 text-primary-foreground" />
+        <Plus className="h-6 w-6 text-[hsl(var(--primary-foreground))]" />
       </Button>
       </div>
     </div>
