@@ -165,11 +165,16 @@ function Column({
     <Card
       className={
         'flex min-h-80 flex-col' +
-        (isActive ? ' ring-1 ring-[hsl(var(--primary))]' : '')
+        (isActive ? ' border-[hsl(var(--primary))]' : '')
       }
     >
-      <CardHeader className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold leading-none tracking-tight">{stage}</h3>
+      <CardHeader className="flex items-center justify-between flex-row">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold leading-none tracking-tight">{stage}</h3>
+          <span className="inline-flex items-center rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--secondary))] text-[hsl(var(--secondary-foreground))] px-2 py-0.5 text-xs">
+            {items.length}
+          </span>
+        </div>
         <button
           className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[hsl(var(--border))] text-xs font-medium text-[hsl(var(--foreground))] shadow-sm hover:bg-[hsl(var(--accent))]"
           type="button"

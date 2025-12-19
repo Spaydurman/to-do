@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { STORAGE_KEYS, Todo, TodoDraft, Priority, Stage, SubTask, Theme, THEME_STORAGE_KEY } from '@/types'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogFooter, DialogHeader } from '@/components/ui/dialog'
 import { Moon, Plus, Sun } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { UserNameForm } from '@/components/UserNameForm'
@@ -19,6 +20,7 @@ export default function App() {
   const [editing, setEditing] = React.useState<Todo | null>(null)
   const [showForm, setShowForm] = React.useState(false)
   const [creatingStage, setCreatingStage] = React.useState<Stage | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null)
 
   const [theme, setTheme] = React.useState<Theme>(() => {
     if (typeof window === 'undefined') return Theme.Light
@@ -117,6 +119,10 @@ export default function App() {
 
   function deleteTodo(id: string) {
     setTodos(todos.filter((t) => t.id !== id))
+  }
+
+  function requestDelete(id: string) {
+    setConfirmDeleteId(id)
   }
 
   function toggleTodo(id: string) {
@@ -229,7 +235,7 @@ export default function App() {
             onChange={setTodos}
             onToggle={toggleTodo}
             onEdit={onEdit}
-            onDelete={deleteTodo}
+            onDelete={requestDelete}
             onToggleSubtask={toggleSubtask}
             onAddSubtask={addSubtask}
             onRemoveSubtask={removeSubtask}
@@ -285,6 +291,31 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Confirm Delete */}
+      <Dialog open={!!confirmDeleteId} onOpenChange={(open) => !open && setConfirmDeleteId(null)}>
+        <DialogHeader>
+          <h2 className="text-lg font-semibold">Delete task?</h2>
+        </DialogHeader>
+        <DialogContent>
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">
+            This action cannot be undone. The task will be permanently removed.
+          </p>
+        </DialogContent>
+        <DialogFooter className="flex items-center justify-end gap-2">
+          <Button variant="outline" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              if (confirmDeleteId) deleteTodo(confirmDeleteId)
+              setConfirmDeleteId(null)
+            }}
+            aria-label="Confirm delete"
+          >
+            Delete
+          </Button>
+        </DialogFooter>
+      </Dialog>
 
       {/* Ask user name on first open */}
       <UserNameForm name={name} onSubmit={setName} />
